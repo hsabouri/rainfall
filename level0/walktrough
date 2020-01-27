@@ -1,0 +1,29 @@
+1. run the binary program without anything -> segfault
+2. run it with something -> probably a "No!"
+
+3. run gdb and type these commands to have a nicer gdb :
+
+    $> gdb level0
+    gdb> layout asm
+    gdb> set step-mode on
+
+4. Then add breakpoint to main and run :
+
+    gdb> b main
+    gdb> r
+
+5. By exploring the asm code we can see a conditionnal jump :
+
+    08048ed9 3d a7 01        CMP        EAX,0x1a7       # compares input with 0x1a7 (423) into %eax
+    08048ede 75 78           JNZ        LAB_08048f58    # jumps somewhere if %eax == 0 
+
+6. Tried to run the binary with argument = 423
+
+7. Got a shell ! (Seen it in asm code previously)
+
+    $ whoami
+    level1
+    $ cat /home/user/level1/.pass
+    1fe8a524fa4bec01ca4ea2a869af2a02260d4a7d5fe7e7c24d8617e6dca12d3a
+
+8. Well.. got it!
