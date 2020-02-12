@@ -9,8 +9,10 @@ int main(int ac, char **av)
     int *c = malloc(8);
     *c = 2;
 
-    int *d = malloc(8);
-    *d = 2; // = *c;
+    b = malloc(8);
+    *b = 2; // = *c;
+
+
 
     return (0);
 }
