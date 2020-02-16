@@ -15,7 +15,6 @@ int main(int ac, char **av)
 
     *call = &m;
     strcpy(a, &av[1]);
-    (*call)();
-
+    ((void (*)(void))*call)();
     return (0);
 }

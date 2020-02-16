@@ -1,0 +1,57 @@
+Finally a level without a Printf!
+
+Let's analyse :
+
+    gdb> info fun
+    All defined functions:
+
+    Non-debugging symbols:
+    ...
+    0x08048454  n
+    0x08048468  m
+    0x0804847c  main
+    ...
+
+    gdb> disas n
+    ...
+    0x0804845a <+6>:	mov    DWORD PTR [esp],0x80485b0
+    0x08048461 <+13>:	call   0x8048370 <system@plt>
+    ...
+    gdb> x/s 0x80485b0
+    0x80485b0:	 "/bin/cat /home/user/level7/.pass"
+
+We can see that m is called via a function pointer :
+    gdb> disas main
+    Dump of assembler code for function main:
+    ...
+    0x080484a5 <+41>:	mov    edx,0x8048468    # Pointer to `m` is stored
+    ...
+    *0x080484d0 <+84>:	call   eax              # Probably called here
+    0x080484d2 <+86>:	leave
+    0x080484d3 <+87>:	ret
+    End of assembler dump.
+
+    gdb> b *0x080484d0                          # breakpoint at call
+    gdb> r "blabla"
+    => 0x080484d0 <+84>:	call   eax
+    gdb> x/x $eax
+    0x8048468 <m>:	0x83e58955                  # it's a pointer to `m`
+
+We need to change this pointer and set it to `n`.
+We'll do a buffer overflow !
+
+    gdb> disas main
+    ...
+    0x08048485 <+9>:	mov    DWORD PTR [esp],0x40
+    0x0804848c <+16>:	call   0x8048350 <malloc@plt>       # malloc of size 64
+    0x08048491 <+21>:	mov    DWORD PTR [esp+0x1c],eax
+    0x08048495 <+25>:	mov    DWORD PTR [esp],0x4          # malloc of size 4
+    0x0804849c <+32>:	call   0x8048350 <malloc@plt>
+    ...
+    0x080484a5 <+41>:	mov    edx,0x8048468                # storing &m into $edx
+    0x080484aa <+46>:	mov    eax,DWORD PTR [esp+0x18]     # $eax points at 4 bytes before second mallocated memory
+    0x080484ae <+50>:	mov    DWORD PTR [eax],edx
+    0x080484b0 <+52>:	mov    eax,DWORD PTR [ebp+0xc]      # CONTINUE TO WRITE HERE
+    0x080484b3 <+55>:	add    eax,0x4
+    0x080484b6 <+58>:	mov    eax,DWORD PTR [eax]
+    0x080484b8 <+60>:	mov    edx,eax
