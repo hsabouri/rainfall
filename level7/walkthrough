@@ -1,0 +1,5 @@
+When we analyse the binary, we see a m function which prints the time and the string pointed by a global variable. In the main function, some calls to malloc are made, then 2 strcpy, and then the level8 .pass file is opened and its contents copied to the global variable. then a call to puts is made to print "~~". As we need the pass file to be opened and copied into the global, we know that we need to call m() after those calls, and as printing "~~" is of at best limited interest to us, we have to find a way to change the puts() address in the GOT to m()'s. 
+
+we see that 4 mallocs are called, and that the address of the malloced space is stored in previous malloc space. Then, as we strcpy argv[1] and argv[2] into the heap, if we overflow the first malloc space with argv[1] and overwrite the second malloc space with the puts() address in the GOT instead of the second malloc, we can then change its contents with the second strcpy, and write m()'s address.
+
+`perl -e 'print "A"x20 . "\x28\x99\x04\x08"'` `perl -e 'print "\xf4\x84\x04\x08"'`
