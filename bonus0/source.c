@@ -20,13 +20,14 @@ void p(char *dest, char *s)
 void pp(char *dest)
 {
     char    *src = panel_addr;
-    char    *b_s;
+    char    a_s[24];
+    char    b_s[20];
     int     i;
 
-    p(dest, src);
-    p(dest + 20, src);
+    p(a_s, src);
+    p(b_s, src);
 
-    // dont know.. strcpy(dest, a_s);
+    strcpy(dest, a_s);
     i = 0;
     while (dest[i] != '\0')
         i++;
