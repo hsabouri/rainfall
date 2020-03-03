@@ -20,7 +20,7 @@ void p(char *dest, char *s)
 void pp(char *dest)
 {
     char    *src = panel_addr;
-    char    a_s[24];
+    char    a_s[20];
     char    b_s[20];
     int     i;
 
@@ -32,7 +32,7 @@ void pp(char *dest)
     while (dest[i] != '\0')
         i++;
     dest[i] = ' ';
-    strcat(dest, dest + 20);
+    strcat(dest, b_s);
 }
 
 int main(int ac, char **av, char **envp)

