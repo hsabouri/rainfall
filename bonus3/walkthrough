@@ -1,0 +1,63 @@
+Disassembling and looking at the asm we see that the .pass is openened :
+
+    gdb> disas main
+    ...
+    0x08048502 <+14>:	mov    edx,0x80486f0
+    0x08048507 <+19>:	mov    eax,0x80486f2
+    0x0804850c <+24>:	mov    DWORD PTR [esp+0x4],edx
+    0x08048510 <+28>:	mov    DWORD PTR [esp],eax
+    0x08048513 <+31>:	call   0x8048410 <fopen@plt>
+    ...
+    gdb> x/s 0x80486f2
+    0x80486f2:	"/home/user/end/.pass"
+
+Since we don't have the rights on this file when we use gdb, we'll changed that to our pass file for our tests :
+
+    gdb> b main
+    gdb> set {char [24]} 0x80486f2 = "/home/user/bonus3/.pass"
+
+The solution is very simple, we just need to explain what the code actually does :
+
+    gdb> disas main
+    ...
+    0x0804854d <+89>:	lea    eax,[esp+0x18]
+    0x08048551 <+93>:	mov    edx,DWORD PTR [esp+0x9c]
+    0x08048558 <+100>:	mov    DWORD PTR [esp+0xc],edx      # File pointer
+    0x0804855c <+104>:	mov    DWORD PTR [esp+0x8],0x42     # 66 bytes
+    0x08048564 <+112>:	mov    DWORD PTR [esp+0x4],0x1      # 1 time
+    0x0804856c <+120>:	mov    DWORD PTR [esp],eax          # buffer
+    0x0804856f <+123>:	call   0x80483d0 <fread@plt>        # fread(buffer, 1, 66, passfile)
+    ...
+    0x080485c7 <+211>:	mov    eax,DWORD PTR [ebp+0xc]
+    0x080485ca <+214>:	add    eax,0x4                      # av[1]
+    0x080485cd <+217>:	mov    eax,DWORD PTR [eax]
+    0x080485cf <+219>:	mov    DWORD PTR [esp+0x4],eax
+    0x080485d3 <+223>:	lea    eax,[esp+0x18]
+    0x080485d7 <+227>:	mov    DWORD PTR [esp],eax
+    0x080485da <+230>:	call   0x80483b0 <strcmp@plt>       # compares first argument with the password
+    0x080485df <+235>:	test   eax,eax
+    0x080485e1 <+237>:	jne    0x8048601 <main+269> 
+    ...
+    0x080485e3 <+239>:	mov    DWORD PTR [esp+0x8],0x0
+    0x080485eb <+247>:	mov    DWORD PTR [esp+0x4],0x8048707
+    0x080485f3 <+255>:	mov    DWORD PTR [esp],0x804870a
+    0x080485fa <+262>:	call   0x8048420 <execl@plt>        # if compared strings match, it opens a shell
+
+The nice and hidden thing is that between the read and the check, it write a \0 at atoi(av[1]) in the buffer
+
+    gdb> disas main
+    0x08048579 <+133>:	mov    eax,DWORD PTR [ebp+0xc]      # av
+    0x0804857c <+136>:	add    eax,0x4                      # av[1]
+    0x0804857f <+139>:	mov    eax,DWORD PTR [eax]
+    0x08048581 <+141>:	mov    DWORD PTR [esp],eax
+    0x08048584 <+144>:	call   0x8048430 <atoi@plt>         # atoi(av[1])
+    0x08048589 <+149>:	mov    BYTE PTR [esp+eax*1+0x18],0x0   # write a 0 byte at atoi(av[1]) in buffer
+
+So, since it compares two strings, if both strings are empty then we will pass through the check. Also atoi("") = 0.
+Running :
+
+./bonus3 ""
+$>
+
+we won.
+
