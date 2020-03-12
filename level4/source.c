@@ -11,7 +11,7 @@ void n(void)
 
     fgets(buff, 512, 1);
     p(buff);
-    if (m == 0x01025544) // \x10\x98\x04\x08
+    if (m == 0x01025544)
     {
         system("/bin/cat /home/user/level5/.pass");
     }

